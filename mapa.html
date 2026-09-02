@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard PNP</title>
+  <link rel="icon" type="image/png" href="img/logo-pnp.png">
+  <link rel="shortcut icon" type="image/png" href="img/logo-pnp.png">
+  <link rel="apple-touch-icon" href="img/logo-pnp.png">
+  <meta name="description" content="Mapa del Perú - Dashboard PNP">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    #mapa-peru-container {
+      width: 100%;
+      height: 650px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-color);
+      z-index: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img src="img/logo-pnp.png" alt="PNP Logo" style="height: 48px; width: auto; object-fit: contain;">
+      <div class="brand-text">
+        <h1 style="font-size: 1.15rem; font-weight: 800; color: #FFFFFF; margin: 0;">Dashboard de Análisis de Denuncias Policiales</h1>
+      </div>
+    </div>
+    <ul class="navbar-nav">
+      <li><a href="dashboard.html" class="nav-link"><i class="ri-dashboard-line"></i> <span>Dashboard BI</span></a></li>
+      <li><a href="consultas.html" class="nav-link"><i class="ri-code-s-slash-line"></i> <span>Consultas SQL</span></a></li>
+      <li><a href="arquitectura.html" class="nav-link"><i class="ri-node-tree"></i> <span>Arquitectura DB</span></a></li>
+      <li><a href="mapa.html" class="nav-link active"><i class="ri-map-pin-line"></i> <span>Mapa del Perú</span></a></li>
+    </ul>
+    <div class="navbar-mininter" style="display: flex; align-items: center;">
+      <img src="img/mininter-logo.png" alt="Ministerio del Interior" style="height: 40px; width: auto; object-fit: contain; filter: brightness(1.1);">
+    </div>
+  </nav>
+
+  <main style="max-width: 1400px; margin: 1.75rem auto; padding: 0 1.5rem;" class="fade-in">
+    
+    <div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <h2 style="font-size: 1.6rem; font-weight: 800; color: #FFFFFF;">Visualización Geográfica de Incidencia (Google Maps API)</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Representación espacial de todos los puntos de densidad de denuncias policiales según ubicación UBIGEO (Ene 2018 - Jul 2026).</p>
+      </div>
+      <div style="display: flex; gap: 1rem; align-items: center; font-size: 0.8rem; color: var(--text-muted);">
+        <span style="display: inline-flex; align-items: center; gap: 0.3rem;"><span style="width: 12px; height: 12px; border-radius: 50%; background-color: #10B981; display: inline-block;"></span> Bajo</span>
+        <span style="display: inline-flex; align-items: center; gap: 0.3rem;"><span style="width: 12px; height: 12px; border-radius: 50%; background-color: #F59E0B; display: inline-block;"></span> Medio</span>
+        <span style="display: inline-flex; align-items: center; gap: 0.3rem;"><span style="width: 12px; height: 12px; border-radius: 50%; background-color: #EF4444; display: inline-block;"></span> Alto (Foco Crítico)</span>
+      </div>
+    </div>
+
+    <div class="card" style="padding: 1rem;">
+      <div id="mapa-peru-container"></div>
+    </div>
+
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/dataset-data.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/google-maps-service.js"></script>
+  <script src="js/mapa.js"></script>
+  <script>
+    function initGoogleMapsCallback() {
+      if (window.SeguridadGoogleMaps) {
+        window.SeguridadGoogleMaps.initMap('mapa-peru-container');
+      }
+    }
+  </script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCJ3ihp8E2H4kD_91iiVMwglv0KMUgQfbw&libraries=visualization&callback=initGoogleMapsCallback" async defer></script>
+</body>
+</html>

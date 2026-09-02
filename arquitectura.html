@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard PNP</title>
+  <link rel="icon" type="image/png" href="img/logo-pnp.png">
+  <link rel="shortcut icon" type="image/png" href="img/logo-pnp.png">
+  <link rel="apple-touch-icon" href="img/logo-pnp.png">
+  <meta name="description" content="Arquitectura de Base de Datos - Dashboard PNP">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    .arch-diagram-container {
+      position: relative;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 2.5rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2rem;
+    }
+
+    .schema-node {
+      background: var(--bg-dark);
+      border: 2px solid var(--accent-primary);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.5rem;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      text-align: center;
+      min-width: 180px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .schema-node:hover, .schema-node.active-node {
+      border-color: var(--accent-cyan);
+      box-shadow: var(--shadow-glow);
+      transform: translateY(-3px);
+    }
+
+    .node-fact {
+      border-color: var(--accent-crimson);
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(15, 23, 42, 0.9));
+    }
+
+    .star-layout {
+      display: grid;
+      grid-template-areas: 
+        ". tiempo ."
+        "ubicacion fact delito"
+        ". institucion .";
+      gap: 2.5rem 3.5rem;
+      align-items: center;
+      justify-items: center;
+    }
+
+    .area-tiempo { grid-area: tiempo; }
+    .area-ubicacion { grid-area: ubicacion; }
+    .area-fact { grid-area: fact; }
+    .area-delito { grid-area: delito; }
+    .area-institucion { grid-area: institucion; }
+
+    .fragment-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.5rem;
+      width: 100%;
+      margin-top: 1.5rem;
+    }
+
+    .fragment-node {
+      background: var(--bg-dark);
+      border: 1px dashed var(--accent-emerald);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+    }
+
+    .fragment-node:hover, .fragment-node.active-frag {
+      border-style: solid;
+      background: rgba(16, 185, 129, 0.15);
+      box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+    }
+
+    @media (max-width: 768px) {
+      .star-layout {
+        grid-template-areas:
+          "tiempo"
+          "ubicacion"
+          "fact"
+          "delito"
+          "institucion";
+        gap: 1.5rem;
+      }
+      .fragment-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img src="img/logo-pnp.png" alt="PNP Logo" style="height: 48px; width: auto; object-fit: contain;">
+      <div class="brand-text">
+        <h1 style="font-size: 1.15rem; font-weight: 800; color: #FFFFFF; margin: 0;">Dashboard de Análisis de Denuncias Policiales</h1>
+      </div>
+    </div>
+    <ul class="navbar-nav">
+      <li><a href="dashboard.html" class="nav-link"><i class="ri-dashboard-line"></i> <span>Dashboard BI</span></a></li>
+      <li><a href="consultas.html" class="nav-link"><i class="ri-code-s-slash-line"></i> <span>Consultas SQL</span></a></li>
+      <li><a href="arquitectura.html" class="nav-link active"><i class="ri-node-tree"></i> <span>Arquitectura DB</span></a></li>
+      <li><a href="mapa.html" class="nav-link"><i class="ri-map-pin-line"></i> <span>Mapa del Perú</span></a></li>
+    </ul>
+    <div class="navbar-mininter" style="display: flex; align-items: center;">
+      <img src="img/mininter-logo.png" alt="Ministerio del Interior" style="height: 40px; width: auto; object-fit: contain; filter: brightness(1.1);">
+    </div>
+  </nav>
+
+  <main style="max-width: 1400px; margin: 1.75rem auto; padding: 0 1.5rem;" class="fade-in">
+    
+    <div style="margin-bottom: 1.75rem;">
+      <h2 style="font-size: 1.6rem; font-weight: 800; color: #FFFFFF;">Arquitectura de Base de Datos</h2>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">Explicación interactiva del Modelo Estrella y la Fragmentación Horizontal por Macroregiones en PostgreSQL / Supabase.</p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 400px; gap: 1.75rem;">
+      
+      <!-- Diagrams Area -->
+      <div style="display: flex; flex-direction: column; gap: 2rem;">
+        
+        <!-- Star Schema Section -->
+        <div class="arch-diagram-container">
+          <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem;">
+            <i class="ri-star-line" style="color: var(--accent-amber);"></i> 1. ESQUEMA ESTRELLA (STAR SCHEMA)
+          </h3>
+
+          <div class="star-layout">
+            
+            <div class="schema-node area-tiempo" onclick="showTableDetails('dim_tiempo')">
+              <div style="font-size: 0.75rem; color: var(--accent-cyan); font-weight: 700;">DIMENSIÓN</div>
+              <strong style="font-size: 1rem; color: #FFF;">DIM_TIEMPO</strong>
+              <div style="font-size: 0.7rem; color: var(--text-muted);">103 Meses (2018-2026)</div>
+            </div>
+
+            <div class="schema-node area-ubicacion" onclick="showTableDetails('dim_ubicacion')">
+              <div style="font-size: 0.75rem; color: var(--accent-cyan); font-weight: 700;">DIMENSIÓN</div>
+              <strong style="font-size: 1rem; color: #FFF;">DIM_UBICACION</strong>
+              <div style="font-size: 0.7rem; color: var(--text-muted);">1,840 Distritos / UBIGEO</div>
+            </div>
+
+            <div class="schema-node area-fact node-fact" onclick="showTableDetails('fact_denuncias')">
+              <div style="font-size: 0.75rem; color: var(--accent-crimson); font-weight: 800;">TABLA DE HECHOS</div>
+              <strong style="font-size: 1.1rem; color: #FFF;">FACT_DENUNCIAS</strong>
+              <div style="font-size: 0.75rem; color: #FCA5A5;">369,100 Registros</div>
+            </div>
+
+            <div class="schema-node area-delito" onclick="showTableDetails('dim_delito')">
+              <div style="font-size: 0.75rem; color: var(--accent-cyan); font-weight: 700;">DIMENSIÓN</div>
+              <strong style="font-size: 1rem; color: #FFF;">DIM_DELITO</strong>
+              <div style="font-size: 0.7rem; color: var(--text-muted);">7 Modalidades Reales</div>
+            </div>
+
+            <div class="schema-node area-institucion" onclick="showTableDetails('dim_institucion')">
+              <div style="font-size: 0.75rem; color: var(--accent-cyan); font-weight: 700;">DIMENSIÓN</div>
+              <strong style="font-size: 1rem; color: #FFF;">DIM_INSTITUCION</strong>
+              <div style="font-size: 0.7rem; color: var(--text-muted);">PNP (Policía Nacional)</div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Horizontal Fragmentation Section -->
+        <div class="arch-diagram-container">
+          <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem;">
+            <i class="ri-git-branch-line" style="color: var(--accent-emerald);"></i> 2. FRAGMENTACIÓN HORIZONTAL POR MACROREGION
+          </h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted); text-align: center;">
+            Distribución lógica y física de la tabla de hechos en 4 fragmentos independientes consolidados mediante la vista <code>vw_denuncias_global</code>.
+          </p>
+
+          <div class="fragment-grid">
+            
+            <div class="fragment-node" onclick="showFragmentDetails('NORTE')">
+              <div style="font-size: 0.75rem; color: var(--accent-emerald); font-weight: 700;">FRAGMENTO</div>
+              <strong style="font-size: 1rem; color: #FFF;">FACT_NORTE</strong>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Tumbes, Piura, Lambayeque, La Libertad, Cajamarca, Ancash</div>
+            </div>
+
+            <div class="fragment-node" onclick="showFragmentDetails('CENTRO')">
+              <div style="font-size: 0.75rem; color: var(--accent-emerald); font-weight: 700;">FRAGMENTO</div>
+              <strong style="font-size: 1rem; color: #FFF;">FACT_CENTRO</strong>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Lima Metro, Callao, Ica, Junín, Pasco, Huánuco, Ayacucho</div>
+            </div>
+
+            <div class="fragment-node" onclick="showFragmentDetails('SUR')">
+              <div style="font-size: 0.75rem; color: var(--accent-emerald); font-weight: 700;">FRAGMENTO</div>
+              <strong style="font-size: 1rem; color: #FFF;">FACT_SUR</strong>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Arequipa, Moquegua, Tacna, Puno, Cusco, Apurímac</div>
+            </div>
+
+            <div class="fragment-node" onclick="showFragmentDetails('ORIENTE')">
+              <div style="font-size: 0.75rem; color: var(--accent-emerald); font-weight: 700;">FRAGMENTO</div>
+              <strong style="font-size: 1rem; color: #FFF;">FACT_ORIENTE</strong>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Loreto, San Martín, Amazonas, Ucayali, Madre de Dios</div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Detail Inspector Sidebar Panel -->
+      <div class="card" style="position: sticky; top: 90px; height: fit-content;">
+        <div class="card-header">
+          <span class="card-title"><i class="ri-information-line" style="color: var(--accent-cyan);"></i> Inspector de Entidad</span>
+        </div>
+        <div id="inspector-content" style="display: flex; flex-direction: column; gap: 1rem;">
+          <p style="color: var(--text-muted); font-size: 0.85rem;">Haga clic en cualquier nodo o fragmento del diagrama para examinar su estructura de columnas, claves primarias, claves foráneas y estadísticas.</p>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/dataset-data.js"></script>
+  <script src="js/supabase.js"></script>
+  <script>
+    const tableMetadata = {
+      'fact_denuncias': {
+        name: 'fact_denuncias (Tabla de Hechos Master / Vista Global)',
+        description: 'Tabla central del Esquema Estrella. Almacena las claves foráneas hacia las dimensiones y la métrica principal de denuncias.',
+        pk: 'id_denuncia (BIGINT)',
+        fk: 'id_tiempo, id_ubicacion, id_delito, id_institucion',
+        rows: '369,100 filas (7,359,931 denuncias acumuladas)',
+        cols: ['id_denuncia', 'id_tiempo', 'id_ubicacion', 'id_delito', 'id_institucion', 'cantidad_denuncias', 'macroregion']
+      },
+      'dim_tiempo': {
+        name: 'dim_tiempo (Dimensión Temporal)',
+        description: 'Jerarquía temporal para filtrar y agrupar denuncias por año, mes, nombre de mes, trimestre y semestre.',
+        pk: 'id_tiempo (INT)',
+        fk: 'Ninguna',
+        rows: '103 registros (Enero 2018 a Julio 2026)',
+        cols: ['id_tiempo', 'fecha', 'anio', 'mes', 'nombre_mes', 'trimestre', 'semestre']
+      },
+      'dim_ubicacion': {
+        name: 'dim_ubicacion (Dimensión Geográfica)',
+        description: 'Jerarquía territorial normalizada (Departamento -> Provincia -> Distrito) con su correspondiente código UBIGEO.',
+        pk: 'id_ubicacion (INT)',
+        fk: 'Ninguna',
+        rows: '1,840 distritos / ubicaciones únicas',
+        cols: ['id_ubicacion', 'ubigeo', 'departamento', 'provincia', 'distrito', 'macroregion']
+      },
+      'dim_delito': {
+        name: 'dim_delito (Dimensión Delito / Hecho)',
+        description: 'Categorización oficial de las 7 modalidades delictivas presentes en el dataset oficial de la PNP.',
+        pk: 'id_delito (INT)',
+        fk: 'Ninguna',
+        rows: '7 modalidades catalogadas',
+        cols: ['id_delito', 'modalidad', 'categoria', 'descripcion']
+      },
+      'dim_institucion': {
+        name: 'dim_institucion (Dimensión Institucional)',
+        description: 'Registro de la entidad responsable de la captura e investigación de la denuncia policial.',
+        pk: 'id_institucion (INT)',
+        fk: 'Ninguna',
+        rows: '1 entidad (Policía Nacional del Perú - PNP)',
+        cols: ['id_institucion', 'nombre_institucion', 'tipo', 'descripcion']
+      }
+    };
+
+    function showTableDetails(tableName) {
+      const info = tableMetadata[tableName];
+      if (!info) return;
+
+      const container = document.getElementById('inspector-content');
+      container.innerHTML = `
+        <h4 style="font-size: 1rem; color: #FFF;">${info.name}</h4>
+        <p style="font-size: 0.85rem; color: var(--text-muted);">${info.description}</p>
+        <div style="display:flex; flex-direction:column; gap:0.5rem; font-size:0.8rem;">
+          <div><strong style="color:var(--accent-amber);">Clave Primaria (PK):</strong> ${info.pk}</div>
+          <div><strong style="color:var(--accent-cyan);">Claves Foráneas (FK):</strong> ${info.fk}</div>
+          <div><strong style="color:var(--accent-emerald);">Registros:</strong> ${info.rows}</div>
+        </div>
+        <h5 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-subtle); margin-top:0.5rem;">Columnas</h5>
+        <ul style="font-size:0.8rem; padding-left:1.25rem; color: var(--text-main);">
+          ${info.cols.map(c => `<li><code>${c}</code></li>`).join('')}
+        </ul>
+      `;
+    }
+
+    function showFragmentDetails(macro) {
+      const ds = window.SeguridadSupabase.getLocalDataset();
+      const frag = ds?.fragments_summary?.[macro];
+      if (!frag) return;
+
+      const container = document.getElementById('inspector-content');
+      container.innerHTML = `
+        <h4 style="font-size: 1rem; color: var(--accent-emerald);">fact_denuncias_${macro.toLowerCase()}</h4>
+        <p style="font-size: 0.85rem; color: var(--text-muted);">${frag.criterio}</p>
+        <div style="display:flex; flex-direction:column; gap:0.5rem; font-size:0.8rem;">
+          <div><strong style="color:var(--accent-cyan);">Criterio de Fragmentación:</strong> CHECK (macroregion = '${macro}')</div>
+          <div><strong style="color:var(--accent-amber);">Denuncias Totales:</strong> ${frag.total_denuncias.toLocaleString('es-PE')}</div>
+          <div><strong style="color:var(--accent-emerald);">Registros en Fragmento:</strong> ${frag.total_registros.toLocaleString('es-PE')}</div>
+        </div>
+        <h5 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-subtle); margin-top:0.5rem;">Departamentos Incluidos</h5>
+        <ul style="font-size:0.8rem; padding-left:1.25rem; color: var(--text-main);">
+          ${frag.departamentos.map(d => `<li>${d}</li>`).join('')}
+        </ul>
+      `;
+    }
+
+    showTableDetails('fact_denuncias');
+  </script>
+</body>
+</html>

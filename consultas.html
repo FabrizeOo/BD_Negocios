@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard PNP</title>
+  <link rel="icon" type="image/png" href="img/logo-pnp.png">
+  <link rel="shortcut icon" type="image/png" href="img/logo-pnp.png">
+  <link rel="apple-touch-icon" href="img/logo-pnp.png">
+  <meta name="description" content="Centro de Consultas SQL - Dashboard PNP">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img src="img/logo-pnp.png" alt="PNP Logo" style="height: 48px; width: auto; object-fit: contain;">
+      <div class="brand-text">
+        <h1 style="font-size: 1.15rem; font-weight: 800; color: #FFFFFF; margin: 0;">Dashboard de Análisis de Denuncias Policiales</h1>
+      </div>
+    </div>
+    <ul class="navbar-nav">
+      <li><a href="dashboard.html" class="nav-link"><i class="ri-dashboard-line"></i> <span>Dashboard BI</span></a></li>
+      <li><a href="consultas.html" class="nav-link active"><i class="ri-code-s-slash-line"></i> <span>Consultas SQL</span></a></li>
+      <li><a href="arquitectura.html" class="nav-link"><i class="ri-node-tree"></i> <span>Arquitectura DB</span></a></li>
+      <li><a href="mapa.html" class="nav-link"><i class="ri-map-pin-line"></i> <span>Mapa del Perú</span></a></li>
+    </ul>
+    <div class="navbar-mininter" style="display: flex; align-items: center;">
+      <img src="img/mininter-logo.png" alt="Ministerio del Interior" style="height: 40px; width: auto; object-fit: contain; filter: brightness(1.1);">
+    </div>
+  </nav>
+
+  <main style="max-width: 1400px; margin: 1.75rem auto; padding: 0 1.5rem;" class="fade-in">
+    
+    <div style="margin-bottom: 1.5rem;">
+      <h2 style="font-size: 1.6rem; font-weight: 800; color: #FFFFFF;">Centro de Consultas SQL</h2>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">Ejecución de consultas sobre Supabase / PostgreSQL demostrando el esquema estrella y fragmentación horizontal.</p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 360px 1fr; gap: 1.5rem;">
+      
+      <!-- Query Selection List -->
+      <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <h3 style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: var(--text-subtle);">Consultas Predefinidas (10)</h3>
+        <div id="query-selector-list" style="display: flex; flex-direction: column; gap: 0.75rem; max-height: calc(100vh - 220px); overflow-y: auto;">
+          <!-- Dynamically populated by consultas.js -->
+        </div>
+      </div>
+
+      <!-- Active Query Console & Results -->
+      <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+        
+        <!-- Query Details & Code -->
+        <div class="card">
+          <div class="card-header">
+            <span id="query-active-title" class="card-title" style="font-size: 1.1rem; color: #FFFFFF;">Seleccione una consulta</span>
+            <div style="display: flex; gap: 1rem; font-size: 0.75rem; color: var(--accent-emerald);">
+              <span id="query-exec-time"><i class="ri-timer-flash-line"></i> 0.00 ms</span>
+              <span id="query-rows-count"><i class="ri-table-line"></i> 0 filas</span>
+            </div>
+          </div>
+          <p id="query-active-desc" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;"></p>
+          
+          <div style="background-color: #0B0F19; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 1rem; font-family: 'Courier New', Courier, monospace; font-size: 0.85rem; color: #38BDF8; overflow-x: auto; white-space: pre-wrap;" id="query-sql-code">
+            -- Seleccione una consulta a la izquierda para visualizar el código SQL
+          </div>
+        </div>
+
+        <!-- Query Results Table -->
+        <div class="card" style="min-height: 400px; display: flex; flex-direction: column;">
+          <div class="card-header">
+            <span class="card-title"><i class="ri-database-2-line" style="color: var(--accent-primary);"></i> Resultado de la Consulta</span>
+          </div>
+          <div id="query-result-table" class="table-wrapper" style="flex: 1;">
+            <!-- Dynamically populated table -->
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/dataset-data.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/consultas.js"></script>
+</body>
+</html>

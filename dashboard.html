@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard PNP</title>
+  <link rel="icon" type="image/png" href="img/logo-pnp.png">
+  <link rel="shortcut icon" type="image/png" href="img/logo-pnp.png">
+  <link rel="apple-touch-icon" href="img/logo-pnp.png">
+  <meta name="description" content="Dashboard de Análisis de Denuncias Policiales del Perú (PNP)">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img src="img/logo-pnp.png" alt="PNP Logo" style="height: 48px; width: auto; object-fit: contain;">
+      <div class="brand-text">
+        <h1 style="font-size: 1.15rem; font-weight: 800; color: #FFFFFF; margin: 0;">Dashboard de Análisis de Denuncias Policiales</h1>
+      </div>
+    </div>
+    <ul class="navbar-nav">
+      <li><a href="dashboard.html" class="nav-link active"><i class="ri-dashboard-line"></i> <span>Dashboard BI</span></a></li>
+      <li><a href="consultas.html" class="nav-link"><i class="ri-code-s-slash-line"></i> <span>Consultas SQL</span></a></li>
+      <li><a href="arquitectura.html" class="nav-link"><i class="ri-node-tree"></i> <span>Arquitectura DB</span></a></li>
+      <li><a href="mapa.html" class="nav-link"><i class="ri-map-pin-line"></i> <span>Mapa del Perú</span></a></li>
+    </ul>
+    <div class="navbar-mininter" style="display: flex; align-items: center;">
+      <img src="img/mininter-logo.png" alt="Ministerio del Interior" style="height: 40px; width: auto; object-fit: contain; filter: brightness(1.1);">
+    </div>
+  </nav>
+
+  <div class="dashboard-layout">
+    
+    <!-- Sidebar Filters -->
+    <aside class="sidebar-filters">
+      <div class="sidebar-title">
+        <span><i class="ri-filter-3-line"></i> FILTROS ANALÍTICOS</span>
+      </div>
+
+      <!-- Tiempo -->
+      <div class="filter-group">
+        <label><i class="ri-calendar-line"></i> Año</label>
+        <select id="filter-anio" class="form-select">
+          <option value="">Todos los Años</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label><i class="ri-calendar-event-line"></i> Mes</label>
+        <select id="filter-mes" class="form-select">
+          <option value="">Todos los Meses</option>
+          <option value="1">Enero</option>
+          <option value="2">Febrero</option>
+          <option value="3">Marzo</option>
+          <option value="4">Abril</option>
+          <option value="5">Mayo</option>
+          <option value="6">Junio</option>
+          <option value="7">Julio</option>
+          <option value="8">Agosto</option>
+          <option value="9">Septiembre</option>
+          <option value="10">Octubre</option>
+          <option value="11">Noviembre</option>
+          <option value="12">Diciembre</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label><i class="ri-pie-chart-line"></i> Trimestre</label>
+        <select id="filter-trimestre" class="form-select">
+          <option value="">Todos los Trimestres</option>
+          <option value="1">Q1 (Ene - Mar)</option>
+          <option value="2">Q2 (Abr - Jun)</option>
+          <option value="3">Q3 (Jul - Sep)</option>
+          <option value="4">Q4 (Oct - Dic)</option>
+        </select>
+      </div>
+
+      <!-- Ubicación Jerárquica -->
+      <div class="filter-group">
+        <label><i class="ri-map-pin-2-line"></i> Departamento</label>
+        <select id="filter-departamento" class="form-select">
+          <option value="">Todos los Departamentos</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label><i class="ri-building-line"></i> Provincia</label>
+        <select id="filter-provincia" class="form-select">
+          <option value="">Todas las Provincias</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label><i class="ri-government-line"></i> Distrito</label>
+        <select id="filter-distrito" class="form-select">
+          <option value="">Todos los Distritos</option>
+        </select>
+      </div>
+
+      <!-- Delito / Hecho -->
+      <div class="filter-group">
+        <label><i class="ri-alarm-warning-line"></i> Tipo de Hecho</label>
+        <select id="filter-delito" class="form-select">
+          <option value="">Todos los Delitos</option>
+        </select>
+      </div>
+
+      <!-- Institución -->
+      <div class="filter-group">
+        <label><i class="ri-police-car-line"></i> Institución</label>
+        <select id="filter-institucion" class="form-select">
+          <option value="">Policía Nacional del Perú (PNP)</option>
+        </select>
+      </div>
+
+      <div class="sidebar-actions">
+        <button id="btn-clear-filters" class="btn btn-outline" style="width: 100%;">
+          <i class="ri-refresh-line"></i> LIMPIAR FILTROS
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="dashboard-content fade-in" style="padding-top: 1rem;">
+
+      <!-- KPI Cards Grid -->
+      <section class="kpi-grid">
+        
+        <div class="kpi-card kpi-cyan">
+          <div class="kpi-header">
+            <span class="kpi-title">TOTAL DE DENUNCIAS</span>
+            <i class="ri-file-list-3-line kpi-icon"></i>
+          </div>
+          <div id="kpi-total-denuncias" class="kpi-value">...</div>
+          <div class="kpi-foot">Registros en el periodo seleccionado</div>
+        </div>
+
+        <div class="kpi-card kpi-emerald">
+          <div class="kpi-header">
+            <span class="kpi-title">DEPARTAMENTOS</span>
+            <i class="ri-map-pin-user-line kpi-icon"></i>
+          </div>
+          <div id="kpi-departamentos" class="kpi-value">...</div>
+          <div class="kpi-foot">Cobertura geográfica regional</div>
+        </div>
+
+        <div class="kpi-card kpi-amber">
+          <div class="kpi-header">
+            <span class="kpi-title">DISTRITOS</span>
+            <i class="ri-community-line kpi-icon"></i>
+          </div>
+          <div id="kpi-distritos" class="kpi-value">...</div>
+          <div class="kpi-foot">Unidades territoriales distritales</div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-header">
+            <span class="kpi-title">TIPOS DE HECHO</span>
+            <i class="ri-shield-flash-line kpi-icon"></i>
+          </div>
+          <div id="kpi-delitos" class="kpi-value">...</div>
+          <div class="kpi-foot">Modalidades delictivas catalogadas</div>
+        </div>
+
+        <div class="kpi-card kpi-crimson">
+          <div class="kpi-header">
+            <span class="kpi-title">VARIACIÓN INTERANUAL</span>
+            <i class="ri-line-chart-line kpi-icon"></i>
+          </div>
+          <div style="margin-top: 0.2rem;">
+            <span id="kpi-variacion-tag" class="variation-tag up">+3.4% interanual</span>
+          </div>
+          <div class="kpi-foot" style="margin-top: 0.4rem;">Comparación respecto al periodo previo</div>
+        </div>
+
+      </section>
+
+      <!-- Charts Grid -->
+      <section class="charts-grid">
+        
+        <!-- Gráfico 1 -->
+        <div class="card chart-card">
+          <div class="card-header">
+            <span class="card-title"><i class="ri-line-chart-fill" style="color: var(--accent-primary);"></i> 1. Evolución Temporal de Denuncias</span>
+            <span class="card-subtitle">Serie mensual</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="chart-evolucion"></canvas>
+          </div>
+        </div>
+
+        <!-- Gráfico 2 -->
+        <div class="card chart-card">
+          <div class="card-header">
+            <span class="card-title"><i class="ri-bar-chart-horizontal-fill" style="color: var(--accent-cyan);"></i> 2. Denuncias por Departamento</span>
+            <span class="card-subtitle">Top 10 departamentos</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="chart-departamentos"></canvas>
+          </div>
+        </div>
+
+        <!-- Gráfico 3 -->
+        <div class="card chart-card">
+          <div class="card-header">
+            <span class="card-title"><i class="ri-alarm-warning-fill" style="color: var(--accent-amber);"></i> 3. Principales Tipos de Hecho</span>
+            <span class="card-subtitle">Modalidad delictiva</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="chart-delitos"></canvas>
+          </div>
+        </div>
+
+        <!-- Gráfico 4 -->
+        <div class="card chart-card">
+          <div class="card-header">
+            <span class="card-title"><i class="ri-calendar-2-fill" style="color: var(--accent-emerald);"></i> 4. Distribución Mensual</span>
+            <span class="card-subtitle">Acumulado Ene - Dic</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="chart-meses"></canvas>
+          </div>
+        </div>
+
+        <!-- Gráfico 5 -->
+        <div class="card chart-card">
+          <div class="card-header">
+            <span class="card-title"><i class="ri-pie-chart-2-fill" style="color: #EC4899;"></i> 5. Distribución por Macroregión</span>
+            <span class="card-subtitle">Norte, Centro, Sur, Oriente</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="chart-macro"></canvas>
+          </div>
+        </div>
+
+        <!-- Gráfico 6 -->
+        <div class="card chart-card">
+          <div class="card-header">
+            <span class="card-title"><i class="ri-bar-chart-grouped-fill" style="color: #8B5CF6;"></i> 6. Comparativa Anual (2018 - 2026)</span>
+            <span class="card-subtitle">Evolución interanual</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="chart-anual"></canvas>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Analytical Table -->
+      <section class="card table-card">
+        <div class="card-header">
+          <span class="card-title"><i class="ri-table-line" style="color: var(--accent-primary);"></i> Tabla Analítica de Registros</span>
+          <span id="table-results-count" class="card-subtitle">Cargando registros...</span>
+        </div>
+
+        <div class="table-toolbar">
+          <div class="table-search">
+            <input type="text" id="table-search-input" class="form-control" placeholder="Buscar por departamento, provincia o distrito...">
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button id="btn-export-csv" class="btn btn-outline" style="font-size: 0.8rem;">
+              <i class="ri-download-2-line"></i> Exportar CSV
+            </button>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>DEPARTAMENTO</th>
+                <th>PROVINCIA</th>
+                <th>DISTRITO</th>
+                <th>TIPO DE HECHO</th>
+                <th>AÑO</th>
+                <th>MES</th>
+                <th>CANTIDAD</th>
+              </tr>
+            </thead>
+            <tbody id="table-body">
+              <!-- Dynamically rendered -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="table-pagination">
+          <span id="page-indicator">Página 1 de 1</span>
+          <div class="pagination-controls">
+            <button id="btn-prev-page" class="btn btn-outline" style="padding: 0.3rem 0.75rem; font-size: 0.8rem;"><i class="ri-arrow-left-s-line"></i> Anterior</button>
+            <button id="btn-next-page" class="btn btn-outline" style="padding: 0.3rem 0.75rem; font-size: 0.8rem;">Siguiente <i class="ri-arrow-right-s-line"></i></button>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/dataset-data.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/filtros.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>
