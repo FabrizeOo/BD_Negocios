@@ -264,8 +264,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     const totalCountText = hasActiveFilter
-      ? `${list.length} micro-registros muestreados (con soporte a 369,100 registros en Supabase DB)`
-      : `369,100 registros catalogados en Supabase (7,359,931 denuncias policiales)`;
+      ? `${list.length.toLocaleString('es-PE')} registros filtrados`
+      : `${list.length.toLocaleString('es-PE')} registros catalogados`;
 
     document.getElementById('table-results-count').textContent = totalCountText;
 

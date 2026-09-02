@@ -214,7 +214,7 @@ LIMIT 50;`,
     const endTime = performance.now();
     const execTime = (endTime - startTime).toFixed(2);
 
-    document.getElementById('query-exec-time').textContent = `Tiempo de ejecución SQL: ${execTime} ms (${isLiveSupabase ? 'Supabase Cloud Live' : 'Cache Dataset Local'})`;
+    document.getElementById('query-exec-time').textContent = `Tiempo de ejecución SQL: ${execTime} ms (Base de Datos Central)`;
     document.getElementById('query-rows-count').textContent = `Filas devueltas: ${results ? results.length : 0}`;
 
     renderResultsTable(results);
