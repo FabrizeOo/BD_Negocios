@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard PNP</title>
+  <title>Dashboard PNP – Análisis de Denuncias Policiales</title>
+  <meta name="description" content="Dashboard de Análisis de Denuncias Policiales del Perú (PNP) – Visualización BI interactiva con filtros avanzados.">
   <link rel="icon" type="image/png" href="img/logo-pnp.png">
   <link rel="shortcut icon" type="image/png" href="img/logo-pnp.png">
   <link rel="apple-touch-icon" href="img/logo-pnp.png">
-  <meta name="description" content="Dashboard de Análisis de Denuncias Policiales del Perú (PNP)">
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="css/dashboard.css">
   <link rel="stylesheet" href="css/responsive.css">
@@ -19,33 +19,44 @@
 <body>
 
   <!-- Top Navigation Bar -->
-  <nav class="navbar">
+  <nav class="navbar" id="main-navbar">
     <div class="navbar-brand">
-      <img src="img/logo-pnp.png" alt="PNP Logo" style="height: 48px; width: auto; object-fit: contain;">
+      <img src="img/logo-pnp.png" alt="PNP Logo" style="height: 44px; width: auto; object-fit: contain;">
       <div class="brand-text">
-        <h1 style="font-size: 1.15rem; font-weight: 800; color: #FFFFFF; margin: 0;">Dashboard de Análisis de Denuncias Policiales</h1>
+        <h1 style="font-size: 1.05rem; font-weight: 800; color: #FFFFFF; margin: 0; line-height: 1.2;">
+          Dashboard de Análisis<br>
+          <span style="color: var(--accent-gold); font-size: 0.78rem; font-weight: 600; letter-spacing: 0.8px;">DENUNCIAS POLICIALES · PNP · PERÚ 2018–2026</span>
+        </h1>
       </div>
     </div>
-    <ul class="navbar-nav">
-      <li><a href="dashboard.html" class="nav-link active"><i class="ri-dashboard-line"></i> <span>Dashboard BI</span></a></li>
-      <li><a href="consultas.html" class="nav-link"><i class="ri-code-s-slash-line"></i> <span>Consultas SQL</span></a></li>
-      <li><a href="arquitectura.html" class="nav-link"><i class="ri-node-tree"></i> <span>Arquitectura DB</span></a></li>
-      <li><a href="mapa.html" class="nav-link"><i class="ri-map-pin-line"></i> <span>Mapa del Perú</span></a></li>
+
+    <!-- Hamburger button (mobile) -->
+    <button id="btn-hamburger" class="btn-hamburger" aria-label="Abrir menú" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+
+    <ul class="navbar-nav" id="navbar-nav">
+      <li><a href="dashboard.html" class="nav-link active" id="nav-dashboard"><i class="ri-dashboard-line"></i> <span>Dashboard BI</span></a></li>
+      <li><a href="mapa.html" class="nav-link" id="nav-mapa"><i class="ri-map-pin-line"></i> <span>Mapa del Perú</span></a></li>
     </ul>
+
     <div class="navbar-mininter" style="display: flex; align-items: center;">
-      <img src="img/mininter-logo.png" alt="Ministerio del Interior" style="height: 40px; width: auto; object-fit: contain; filter: brightness(1.1);">
+      <img src="img/mininter-logo.png" alt="Ministerio del Interior" style="height: 38px; width: auto; object-fit: contain; filter: brightness(1.1);">
     </div>
   </nav>
 
-  <div class="dashboard-layout">
-    
+  <div class="dashboard-layout" id="dashboard-layout">
+
     <!-- Sidebar Filters -->
-    <aside class="sidebar-filters">
+    <aside class="sidebar-filters" id="sidebar-filters">
       <div class="sidebar-title">
         <span><i class="ri-filter-3-line"></i> FILTROS ANALÍTICOS</span>
+        <button id="btn-close-sidebar" class="btn-close-sidebar" aria-label="Cerrar filtros"><i class="ri-close-line"></i></button>
       </div>
 
       <!-- Tiempo -->
+      <div class="filter-section-label">⏱ TEMPORAL</div>
+
       <div class="filter-group">
         <label><i class="ri-calendar-line"></i> Año</label>
         <select id="filter-anio" class="form-select">
@@ -84,6 +95,20 @@
       </div>
 
       <!-- Ubicación Jerárquica -->
+      <div class="filter-section-label">📍 UBICACIÓN</div>
+
+      <div class="filter-group">
+        <label><i class="ri-map-2-line"></i> Macroregión</label>
+        <select id="filter-macroregion" class="form-select">
+          <option value="">Todas las Macroregiones</option>
+          <option value="NORTE">Norte</option>
+          <option value="SUR">Sur</option>
+          <option value="CENTRO">Centro</option>
+          <option value="ORIENTE">Oriente</option>
+          <option value="LIMA">Lima Metropolitana</option>
+        </select>
+      </div>
+
       <div class="filter-group">
         <label><i class="ri-map-pin-2-line"></i> Departamento</label>
         <select id="filter-departamento" class="form-select">
@@ -106,34 +131,59 @@
       </div>
 
       <!-- Delito / Hecho -->
+      <div class="filter-section-label">⚠ DELITO</div>
+
       <div class="filter-group">
         <label><i class="ri-alarm-warning-line"></i> Tipo de Hecho</label>
         <select id="filter-delito" class="form-select">
-          <option value="">Todos los Delitos</option>
+          <option value="">Todos los Tipos</option>
         </select>
       </div>
 
-      <!-- Institución -->
+      <!-- Ranking y Visualización -->
+      <div class="filter-section-label">📊 RANKING</div>
+
       <div class="filter-group">
-        <label><i class="ri-police-car-line"></i> Institución</label>
-        <select id="filter-institucion" class="form-select">
-          <option value="">Policía Nacional del Perú (PNP)</option>
+        <label><i class="ri-trophy-line"></i> Top Departamentos</label>
+        <select id="filter-top-n" class="form-select">
+          <option value="5">Top 5</option>
+          <option value="10" selected>Top 10</option>
+          <option value="15">Top 15</option>
+          <option value="25">Top 25 (todos)</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label><i class="ri-sort-desc"></i> Ordenar tabla por</label>
+        <select id="filter-sort" class="form-select">
+          <option value="cantidad_desc">Mayor cantidad</option>
+          <option value="cantidad_asc">Menor cantidad</option>
+          <option value="dept_asc">Departamento A–Z</option>
         </select>
       </div>
 
       <div class="sidebar-actions">
+        <button id="btn-apply-filters" class="btn btn-gold" style="width: 100%;">
+          <i class="ri-check-line"></i> APLICAR FILTROS
+        </button>
         <button id="btn-clear-filters" class="btn btn-outline" style="width: 100%;">
           <i class="ri-refresh-line"></i> LIMPIAR FILTROS
         </button>
       </div>
     </aside>
 
+    <!-- Sidebar overlay for mobile -->
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
     <!-- Main Content Area -->
-    <main class="dashboard-content fade-in" style="padding-top: 1rem;">
+    <main class="dashboard-content fade-in" id="dashboard-main" style="padding-top: 1rem;">
+
+      <!-- Active Filters Pill Bar -->
+      <div id="active-filters-bar" class="active-filters-bar" style="display:none;"></div>
 
       <!-- KPI Cards Grid -->
       <section class="kpi-grid">
-        
+
         <div class="kpi-card kpi-cyan">
           <div class="kpi-header">
             <span class="kpi-title">TOTAL DE DENUNCIAS</span>
@@ -181,74 +231,162 @@
           <div class="kpi-foot" style="margin-top: 0.4rem;">Comparación respecto al periodo previo</div>
         </div>
 
+        <div class="kpi-card" style="--kpi-accent: #8B5CF6;">
+          <div class="kpi-header">
+            <span class="kpi-title">PROM. MENSUAL</span>
+            <i class="ri-bar-chart-line kpi-icon"></i>
+          </div>
+          <div id="kpi-promedio-mensual" class="kpi-value">...</div>
+          <div class="kpi-foot">Denuncias promedio por mes</div>
+        </div>
+
       </section>
 
-      <!-- Charts Grid -->
-      <section class="charts-grid">
-        
-        <!-- Gráfico 1 -->
+      <!-- ===== SECTION 1: Análisis Temporal ===== -->
+      <div class="section-divider"><span><i class="ri-time-line"></i> ANÁLISIS TEMPORAL</span></div>
+      <section class="charts-grid charts-grid-2">
+
+        <!-- Gráfico 1: Evolución Temporal -->
         <div class="card chart-card">
           <div class="card-header">
             <span class="card-title"><i class="ri-line-chart-fill" style="color: var(--accent-primary);"></i> 1. Evolución Temporal de Denuncias</span>
-            <span class="card-subtitle">Serie mensual</span>
+            <span class="card-subtitle">Serie mensual acumulada</span>
           </div>
           <div class="chart-container">
             <canvas id="chart-evolucion"></canvas>
           </div>
         </div>
 
-        <!-- Gráfico 2 -->
+        <!-- Gráfico 2: Comparativa Anual -->
         <div class="card chart-card">
           <div class="card-header">
-            <span class="card-title"><i class="ri-bar-chart-horizontal-fill" style="color: var(--accent-cyan);"></i> 2. Denuncias por Departamento</span>
-            <span class="card-subtitle">Top 10 departamentos</span>
+            <span class="card-title"><i class="ri-bar-chart-grouped-fill" style="color: #8B5CF6;"></i> 2. Comparativa Anual (2018–2026)</span>
+            <span class="card-subtitle">Evolución interanual total</span>
           </div>
           <div class="chart-container">
-            <canvas id="chart-departamentos"></canvas>
+            <canvas id="chart-anual"></canvas>
           </div>
         </div>
 
-        <!-- Gráfico 3 -->
+        <!-- Gráfico 3: Distribución Mensual -->
         <div class="card chart-card">
           <div class="card-header">
-            <span class="card-title"><i class="ri-alarm-warning-fill" style="color: var(--accent-amber);"></i> 3. Principales Tipos de Hecho</span>
-            <span class="card-subtitle">Modalidad delictiva</span>
-          </div>
-          <div class="chart-container">
-            <canvas id="chart-delitos"></canvas>
-          </div>
-        </div>
-
-        <!-- Gráfico 4 -->
-        <div class="card chart-card">
-          <div class="card-header">
-            <span class="card-title"><i class="ri-calendar-2-fill" style="color: var(--accent-emerald);"></i> 4. Distribución Mensual</span>
-            <span class="card-subtitle">Acumulado Ene - Dic</span>
+            <span class="card-title"><i class="ri-calendar-2-fill" style="color: var(--accent-emerald);"></i> 3. Distribución Mensual Acumulada</span>
+            <span class="card-subtitle">Estacionalidad Ene – Dic</span>
           </div>
           <div class="chart-container">
             <canvas id="chart-meses"></canvas>
           </div>
         </div>
 
-        <!-- Gráfico 5 -->
+        <!-- Gráfico 4: Heatmap Trimestral -->
         <div class="card chart-card">
           <div class="card-header">
-            <span class="card-title"><i class="ri-pie-chart-2-fill" style="color: #EC4899;"></i> 5. Distribución por Macroregión</span>
-            <span class="card-subtitle">Norte, Centro, Sur, Oriente</span>
+            <span class="card-title"><i class="ri-grid-fill" style="color: var(--accent-amber);"></i> 4. Denuncias por Trimestre &amp; Año</span>
+            <span class="card-subtitle">Vista comparativa por cuartos</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="chart-trimestral"></canvas>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ===== SECTION 2: Análisis Geográfico ===== -->
+      <div class="section-divider"><span><i class="ri-map-2-line"></i> ANÁLISIS GEOGRÁFICO</span></div>
+      <section class="charts-grid charts-grid-2">
+
+        <!-- Gráfico 5: Top N Departamentos -->
+        <div class="card chart-card chart-card-tall">
+          <div class="card-header">
+            <span class="card-title"><i class="ri-bar-chart-horizontal-fill" style="color: var(--accent-cyan);"></i> 5. <span id="chart-dept-title">Top 10 Departamentos más Afectados</span></span>
+            <span class="card-subtitle">Ranking por total de denuncias</span>
+          </div>
+          <div class="chart-container" style="height: 350px;">
+            <canvas id="chart-departamentos"></canvas>
+          </div>
+        </div>
+
+        <!-- Gráfico 6: Macroregión Doughnut -->
+        <div class="card chart-card">
+          <div class="card-header">
+            <span class="card-title"><i class="ri-pie-chart-2-fill" style="color: #EC4899;"></i> 6. Distribución por Macroregión</span>
+            <span class="card-subtitle">Norte, Centro, Sur, Oriente, Lima</span>
           </div>
           <div class="chart-container">
             <canvas id="chart-macro"></canvas>
           </div>
         </div>
 
-        <!-- Gráfico 6 -->
+        <!-- Gráfico 7: Top 10 Provincias -->
+        <div class="card chart-card chart-card-tall">
+          <div class="card-header">
+            <span class="card-title"><i class="ri-building-4-fill" style="color: #F97316;"></i> 7. Top 10 Provincias más Afectadas</span>
+            <span class="card-subtitle">Ranking provincial</span>
+          </div>
+          <div class="chart-container" style="height: 320px;">
+            <canvas id="chart-provincias"></canvas>
+          </div>
+        </div>
+
+        <!-- Gráfico 8: Top Distritos -->
+        <div class="card chart-card chart-card-tall">
+          <div class="card-header">
+            <span class="card-title"><i class="ri-home-4-fill" style="color: #14B8A6;"></i> 8. Top 10 Distritos más Afectados</span>
+            <span class="card-subtitle">Ranking distrital</span>
+          </div>
+          <div class="chart-container" style="height: 320px;">
+            <canvas id="chart-distritos"></canvas>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ===== SECTION 3: Análisis Delictivo ===== -->
+      <div class="section-divider"><span><i class="ri-alarm-warning-line"></i> ANÁLISIS DELICTIVO</span></div>
+      <section class="charts-grid charts-grid-2">
+
+        <!-- Gráfico 9: Tipos de Hecho -->
+        <div class="card chart-card chart-card-tall">
+          <div class="card-header">
+            <span class="card-title"><i class="ri-alarm-warning-fill" style="color: var(--accent-amber);"></i> 9. Principales Tipos de Hecho</span>
+            <span class="card-subtitle">Ranking por modalidad delictiva</span>
+          </div>
+          <div class="chart-container" style="height: 320px;">
+            <canvas id="chart-delitos"></canvas>
+          </div>
+        </div>
+
+        <!-- Gráfico 10: Evolución por tipo de hecho -->
         <div class="card chart-card">
           <div class="card-header">
-            <span class="card-title"><i class="ri-bar-chart-grouped-fill" style="color: #8B5CF6;"></i> 6. Comparativa Anual (2018 - 2026)</span>
-            <span class="card-subtitle">Evolución interanual</span>
+            <span class="card-title"><i class="ri-line-chart-line" style="color: #EF4444;"></i> 10. Evolución Top 5 Tipos de Delito por Año</span>
+            <span class="card-subtitle">Tendencia comparativa por modalidad</span>
           </div>
           <div class="chart-container">
-            <canvas id="chart-anual"></canvas>
+            <canvas id="chart-delito-evolucion"></canvas>
+          </div>
+        </div>
+
+        <!-- Gráfico 11: Concentración delictiva (Radar) -->
+        <div class="card chart-card">
+          <div class="card-header">
+            <span class="card-title"><i class="ri-radar-line" style="color: #A78BFA;"></i> 11. Concentración Delictiva por Macroregión</span>
+            <span class="card-subtitle">Índice por zona geográfica</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="chart-radar-macro"></canvas>
+          </div>
+        </div>
+
+        <!-- Gráfico 12: % Participación de cada Dept sobre el total -->
+        <div class="card chart-card">
+          <div class="card-header">
+            <span class="card-title"><i class="ri-donut-chart-fill" style="color: #34D399;"></i> 12. % de Participación Departamental</span>
+            <span class="card-subtitle">Peso relativo del Top 8 sobre el total</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="chart-participacion"></canvas>
           </div>
         </div>
 
@@ -263,9 +401,9 @@
 
         <div class="table-toolbar">
           <div class="table-search">
-            <input type="text" id="table-search-input" class="form-control" placeholder="Buscar por departamento, provincia o distrito...">
+            <input type="text" id="table-search-input" class="form-control" placeholder="Buscar por departamento, provincia, distrito o hecho...">
           </div>
-          <div style="display: flex; gap: 0.5rem;">
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
             <button id="btn-export-csv" class="btn btn-outline" style="font-size: 0.8rem;">
               <i class="ri-download-2-line"></i> Exportar CSV
             </button>
@@ -276,6 +414,7 @@
           <table class="data-table">
             <thead>
               <tr>
+                <th>#</th>
                 <th>DEPARTAMENTO</th>
                 <th>PROVINCIA</th>
                 <th>DISTRITO</th>

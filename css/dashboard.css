@@ -162,8 +162,11 @@
 /* Charts Grid */
 .charts-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
   gap: 1.35rem;
+}
+
+.charts-grid-2 {
+  grid-template-columns: repeat(2, 1fr);
 }
 
 .chart-card {
