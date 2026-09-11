@@ -29,21 +29,22 @@
 <body>
 
   <!-- Navigation Bar -->
-  <nav class="navbar">
+  <nav class="navbar" id="main-navbar">
     <div class="navbar-brand">
-      <img src="img/logo-pnp.png" alt="PNP Logo" style="height: 48px; width: auto; object-fit: contain;">
+      <img src="img/logo-pnp.png" alt="PNP Logo" style="height: 44px; width: auto; object-fit: contain;">
       <div class="brand-text">
-        <h1 style="font-size: 1.15rem; font-weight: 800; color: #FFFFFF; margin: 0;">Dashboard de Análisis de Denuncias Policiales</h1>
+        <h1 style="font-size: 1.05rem; font-weight: 800; color: #FFFFFF; margin: 0; line-height: 1.2;">
+          Dashboard de Análisis<br>
+          <span style="color: var(--accent-gold); font-size: 0.78rem; font-weight: 600; letter-spacing: 0.8px;">DENUNCIAS POLICIALES · PNP · PERÚ 2018–2026</span>
+        </h1>
       </div>
     </div>
-    <ul class="navbar-nav">
-      <li><a href="dashboard.html" class="nav-link"><i class="ri-dashboard-line"></i> <span>Dashboard BI</span></a></li>
-      <li><a href="consultas.html" class="nav-link"><i class="ri-code-s-slash-line"></i> <span>Consultas SQL</span></a></li>
-      <li><a href="arquitectura.html" class="nav-link"><i class="ri-node-tree"></i> <span>Arquitectura DB</span></a></li>
-      <li><a href="mapa.html" class="nav-link active"><i class="ri-map-pin-line"></i> <span>Mapa del Perú</span></a></li>
+    <ul class="navbar-nav" id="navbar-nav">
+      <li><a href="dashboard.html" class="nav-link" id="nav-dashboard"><i class="ri-dashboard-line"></i> <span>Dashboard BI</span></a></li>
+      <li><a href="mapa.html" class="nav-link active" id="nav-mapa"><i class="ri-map-pin-line"></i> <span>Mapa del Perú</span></a></li>
     </ul>
     <div class="navbar-mininter" style="display: flex; align-items: center;">
-      <img src="img/mininter-logo.png" alt="Ministerio del Interior" style="height: 40px; width: auto; object-fit: contain; filter: brightness(1.1);">
+      <img src="img/mininter-logo.png" alt="Ministerio del Interior" style="height: 38px; width: auto; object-fit: contain; filter: brightness(1.1);">
     </div>
   </nav>
 
