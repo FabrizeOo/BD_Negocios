@@ -1,9 +1,3 @@
-/* ============================================================================
-   PROYECTO: SEGURIDAD PERÚ
-   Centro de Consultas SQL - consultas.js
-   Ejecutor interactivo con soporte directo a Supabase PostgreSQL Cloud
-   ============================================================================ */
-
 window.SeguridadConsultas = (function () {
   const queries = [
     {

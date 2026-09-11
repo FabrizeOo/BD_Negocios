@@ -1,9 +1,3 @@
-/* ============================================================================
-   PROYECTO: SEGURIDAD PERÚ
-   Módulo de Inteligencia Artificial Gemini - gemini-service.js
-   Arquitectura para Consultas en Lenguaje Natural conectada a Supabase
-   ============================================================================ */
-
 window.SeguridadGemini = (function () {
   // Edge Function Proxy Endpoint (recommended for production security)
   const EDGE_FUNCTION_URL = 'https://your-supabase-project.supabase.co/functions/v1/gemini-query';
@@ -14,11 +8,11 @@ window.SeguridadGemini = (function () {
    */
   async function askNaturalLanguageQuery(userPrompt) {
     console.log("Procesando consulta NL con Gemini AI:", userPrompt);
-    
+
     // Simulación de pipeline NL2SQL respaldada por el dataset real
     const promptLower = userPrompt.toLowerCase();
     const ds = window.SeguridadSupabase.getLocalDataset();
-    
+
     let answerText = "";
     let generatedSQL = "";
     let dataResults = null;

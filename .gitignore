@@ -16,3 +16,6 @@ Thumbs.db
 
 # Node dependencies
 node_modules/
+
+# IDE
+.idea/

@@ -64,22 +64,12 @@ window.SeguridadFiltros = (function () {
   }
 
   function handleMacroChange(selectedMacro) {
-    // Filter available departments by macroregion mapping
-    const macroMap = {
-      'NORTE': ['PIURA', 'LAMBAYEQUE', 'LA LIBERTAD', 'CAJAMARCA', 'TUMBES', 'AMAZONAS', 'SAN MARTIN'],
-      'SUR': ['AREQUIPA', 'PUNO', 'TACNA', 'MOQUEGUA', 'CUSCO', 'APURIMAC', 'MADRE DE DIOS'],
-      'CENTRO': ['JUNIN', 'PASCO', 'HUANUCO', 'HUANCAVELICA', 'AYACUCHO', 'ICA', 'ANCASH'],
-      'ORIENTE': ['LORETO', 'UCAYALI'],
-      'LIMA': ['LIMA', 'CALLAO']
-    };
-
+    const ds = window.SeguridadSupabase.getLocalDataset();
     const allDepts = Object.keys(hierarchy).sort();
     let filteredDepts = allDepts;
 
-    if (selectedMacro && macroMap[selectedMacro]) {
-      filteredDepts = allDepts.filter(d =>
-        macroMap[selectedMacro].some(m => d.toUpperCase().includes(m))
-      );
+    if (selectedMacro && ds && ds.macro_map) {
+      filteredDepts = allDepts.filter(d => ds.macro_map[d] === selectedMacro);
     }
 
     populateSelect('filter-departamento', filteredDepts, 'Todos los Departamentos');
@@ -91,6 +81,14 @@ window.SeguridadFiltros = (function () {
     currentFilters.departamento = selectedDpto;
     currentFilters.provincia = '';
     currentFilters.distrito = '';
+
+    const ds = window.SeguridadSupabase.getLocalDataset();
+    if (selectedDpto && ds && ds.macro_map) {
+      const macroSelect = document.getElementById('filter-macroregion');
+      if (macroSelect && !macroSelect.value) {
+        macroSelect.value = ds.macro_map[selectedDpto] || '';
+      }
+    }
 
     if (selectedDpto && hierarchy[selectedDpto]) {
       const provs = Object.keys(hierarchy[selectedDpto]).sort();

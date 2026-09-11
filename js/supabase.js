@@ -1,9 +1,3 @@
-/* ============================================================================
-   PROYECTO: SEGURIDAD PERÚ
-   Supabase Client & Real PostgreSQL Data Connector - supabase.js
-   Conexión activa a la base de datos oficial en Supabase Cloud
-   ============================================================================ */
-
 window.SeguridadSupabase = (function () {
   let supabaseClient = null;
   let isConnected = false;
@@ -55,8 +49,8 @@ window.SeguridadSupabase = (function () {
     isConnected: function () { return isConnected; },
     getClient: function () { return supabaseClient; },
     getLocalDataset: getLocalDataset,
-    getUrl: function() { return SUPABASE_URL; },
-    getAnonKey: function() { return SUPABASE_ANON_KEY; }
+    getUrl: function () { return SUPABASE_URL; },
+    getAnonKey: function () { return SUPABASE_ANON_KEY; }
   };
 })();
 

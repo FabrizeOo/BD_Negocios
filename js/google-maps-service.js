@@ -1,9 +1,3 @@
-/* ============================================================================
-   PROYECTO: SEGURIDAD PERÚ
-   Módulo de Integración Oficial con Google Maps API - google-maps-service.js
-   Visualización espacial de alta resolución con API Key oficial
-   ============================================================================ */
-
 window.SeguridadGoogleMaps = (function () {
   let mapInstance = null;
   let markers = [];
@@ -65,7 +59,7 @@ window.SeguridadGoogleMaps = (function () {
 
     if (window.google && window.google.maps) {
       console.log("Inicializando Google Maps con API Key oficial...");
-      
+
       mapInstance = new google.maps.Map(el, {
         center: { lat: -9.19, lng: -75.015 },
         zoom: 6,
@@ -198,6 +192,6 @@ window.SeguridadGoogleMaps = (function () {
   return {
     initMap: initMap,
     renderAllPoints: renderAllPoints,
-    getApiKey: function() { return API_KEY; }
+    getApiKey: function () { return API_KEY; }
   };
 })();

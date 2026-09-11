@@ -1,9 +1,3 @@
-/* ============================================================================
-   PROYECTO: SEGURIDAD PERÚ
-   Módulo de Mapa Geográfico (Google Maps API + Fallback Leaflet) - mapa.js
-   Visualización de todos los puntos de denuncias policiales del Perú
-   ============================================================================ */
-
 window.SeguridadMapa = (function () {
   function init() {
     const container = document.getElementById('mapa-peru-container');

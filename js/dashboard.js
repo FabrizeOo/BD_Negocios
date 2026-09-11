@@ -21,45 +21,28 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ============================================================
-  // MAIN UPDATE
+  // MAIN UPDATE ENGINE (High-Performance Vectorized Scanner)
   // ============================================================
   function updateDashboard() {
     const filters = window.SeguridadFiltros.getActiveFilters();
     const ds = window.SeguridadSupabase.getLocalDataset();
-    if (!ds) return;
+    if (!ds || !ds.records || !ds.dictionaries) return;
 
-    const sampleTable = ds.sample_table || [];
+    const dicts = ds.dictionaries;
+    const recs = ds.records;
+    const dptoMacros = ds.dpto_macros || [];
+    const yearsList = ds.metadata.anios || [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
     const topN = filters.topN || 10;
 
-    // --- Filter sample_table ---
-    let filteredSample = sampleTable.filter(r => {
-      if (filters.anio && r.ANIO !== parseInt(filters.anio)) return false;
-      if (filters.mes && r.MES !== parseInt(filters.mes)) return false;
-      if (filters.trimestre) {
-        const q = parseInt(filters.trimestre);
-        const m = r.MES;
-        if (q === 1 && (m < 1 || m > 3)) return false;
-        if (q === 2 && (m < 4 || m > 6)) return false;
-        if (q === 3 && (m < 7 || m > 9)) return false;
-        if (q === 4 && (m < 10 || m > 12)) return false;
-      }
-      if (filters.macroregion && r.MACROREGION && r.MACROREGION !== filters.macroregion) return false;
-      if (filters.departamento && r.DPTO_HECHO_NEW !== filters.departamento) return false;
-      if (filters.provincia && r.PROV_HECHO !== filters.provincia) return false;
-      if (filters.distrito && r.DIST_HECHO !== filters.distrito) return false;
-      if (filters.delito && r.P_MODALIDADES !== filters.delito) return false;
-      return true;
-    });
-
-    let fallbackSample = sampleTable.filter(r => {
-      if (filters.departamento && r.DPTO_HECHO_NEW !== filters.departamento) return false;
-      if (filters.delito && r.P_MODALIDADES !== filters.delito) return false;
-      return true;
-    });
-
-    const activeSample = filteredSample.length > 0
-      ? filteredSample
-      : (fallbackSample.length > 0 ? fallbackSample : sampleTable);
+    // Resolve filter indices for ultra-fast integer comparisons
+    const dptoIdx = filters.departamento ? dicts.dptos.indexOf(filters.departamento) : -1;
+    const provIdx = filters.provincia ? dicts.provs.indexOf(filters.provincia) : -1;
+    const distIdx = filters.distrito ? dicts.dists.indexOf(filters.distrito) : -1;
+    const delitoIdx = filters.delito ? dicts.delitos.indexOf(filters.delito) : -1;
+    const anioNum = filters.anio ? parseInt(filters.anio) : 0;
+    const mesNum = filters.mes ? parseInt(filters.mes) : 0;
+    const trimNum = filters.trimestre ? parseInt(filters.trimestre) : 0;
+    const macroFilter = filters.macroregion || '';
 
     const hasActiveFilter = !!(
       filters.anio || filters.mes || filters.trimestre ||
@@ -67,274 +50,441 @@ document.addEventListener('DOMContentLoaded', function () {
       filters.provincia || filters.distrito || filters.delito
     );
 
-    // --- KPI: Total Denuncias ---
-    let totalComplaints = ds.metadata.total_denuncias;
-    let ymFiltered = ds.aggregations.by_year_month;
+    // Accumulators
+    let totalDenuncias = 0;
+    let matchCount = 0;
+    const uniqueDepts = new Set();
+    const uniqueProvs = new Set();
+    const uniqueDists = new Set();
+    const uniqueDelitos = new Set();
 
-    if (filters.anio) ymFiltered = ymFiltered.filter(d => d.ANIO === parseInt(filters.anio));
-    if (filters.mes) {
-      ymFiltered = ymFiltered.filter(d => d.MES === parseInt(filters.mes));
-    } else if (filters.trimestre) {
-      const q = parseInt(filters.trimestre);
-      const mStart = (q - 1) * 3 + 1;
-      const mEnd = q * 3;
-      ymFiltered = ymFiltered.filter(d => d.MES >= mStart && d.MES <= mEnd);
+    const byYearMap = {};
+    yearsList.forEach(y => byYearMap[y] = 0);
+
+    const byMonthMap = new Array(12).fill(0);
+    const byYMMap = {};
+
+    const trimYearMap = {};
+    yearsList.forEach(y => trimYearMap[y] = [0, 0, 0, 0]);
+
+    const byDeptMap = {};
+    const byProvMap = {};
+    const byDistMap = {};
+    const byDelitoMap = new Array(dicts.delitos.length).fill(0);
+    const byMacroMap = { 'NORTE': 0, 'SUR': 0, 'CENTRO': 0, 'LIMA': 0, 'ORIENTE': 0 };
+
+    const delitoYearMap = {};
+    for (let di = 0; di < dicts.delitos.length; di++) {
+      delitoYearMap[di] = {};
+      yearsList.forEach(y => delitoYearMap[di][y] = 0);
     }
 
-    const ymSum = ymFiltered.reduce((acc, d) => acc + d.cantidad, 0);
-    const timeRatio = ymSum / ds.metadata.total_denuncias;
+    const matchingRows = [];
+    const maxTableRows = 10000;
 
-    if (filters.departamento) {
-      const dObj = ds.aggregations.by_dept.find(d => d.DPTO_HECHO_NEW === filters.departamento);
-      totalComplaints = Math.round((dObj ? dObj.cantidad : 150000) * timeRatio);
-    } else if (filters.delito) {
-      const dObj = ds.aggregations.by_delito.find(d => d.P_MODALIDADES === filters.delito);
-      totalComplaints = Math.round((dObj ? dObj.cantidad : 200000) * timeRatio);
-    } else {
-      totalComplaints = ymSum;
+    // FAST SINGLE PASS SCAN OVER ALL 369,100 RECORDS
+    for (let i = 0; i < recs.length; i++) {
+      const r = recs[i];
+      // Format: [anio, mes, dpto_i, prov_i, dist_i, delito_i, cantidad]
+      if (anioNum && r[0] !== anioNum) continue;
+      if (mesNum && r[1] !== mesNum) continue;
+      if (trimNum) {
+        const m = r[1];
+        if (trimNum === 1 && (m < 1 || m > 3)) continue;
+        if (trimNum === 2 && (m < 4 || m > 6)) continue;
+        if (trimNum === 3 && (m < 7 || m > 9)) continue;
+        if (trimNum === 4 && (m < 10 || m > 12)) continue;
+      }
+      if (macroFilter && dptoMacros[r[2]] !== macroFilter) continue;
+      if (dptoIdx !== -1 && r[2] !== dptoIdx) continue;
+      if (provIdx !== -1 && r[3] !== provIdx) continue;
+      if (distIdx !== -1 && r[4] !== distIdx) continue;
+      if (delitoIdx !== -1 && r[5] !== delitoIdx) continue;
+
+      const y = r[0];
+      const m = r[1];
+      const cant = r[6];
+
+      totalDenuncias += cant;
+      matchCount++;
+      uniqueDepts.add(r[2]);
+      uniqueProvs.add(r[3]);
+      uniqueDists.add(r[4]);
+      uniqueDelitos.add(r[5]);
+
+      if (byYearMap[y] !== undefined) byYearMap[y] += cant;
+      if (m >= 1 && m <= 12) byMonthMap[m - 1] += cant;
+
+      const ymKey = `${m}/${y}`;
+      byYMMap[ymKey] = (byYMMap[ymKey] || 0) + cant;
+
+      const qIdx = Math.floor((m - 1) / 3);
+      if (trimYearMap[y] && qIdx >= 0 && qIdx < 4) {
+        trimYearMap[y][qIdx] += cant;
+      }
+
+      byDeptMap[r[2]] = (byDeptMap[r[2]] || 0) + cant;
+      byProvMap[r[3]] = (byProvMap[r[3]] || 0) + cant;
+      byDistMap[r[4]] = (byDistMap[r[4]] || 0) + cant;
+      byDelitoMap[r[5]] += cant;
+
+      const macro = dptoMacros[r[2]] || 'CENTRO';
+      if (byMacroMap[macro] !== undefined) byMacroMap[macro] += cant;
+
+      if (delitoYearMap[r[5]]) {
+        delitoYearMap[r[5]][y] = (delitoYearMap[r[5]][y] || 0) + cant;
+      }
+
+      if (matchingRows.length < maxTableRows) {
+        matchingRows.push(r);
+      }
     }
 
-    // --- KPI: Variación Interanual ---
-    let varText = '+3.4% interanual';
+    // ============================================================
+    // KPI CALCULATIONS
+    // ============================================================
+    // 1. Variación Interanual
+    let varText = 'Sin dato';
     let varClass = 'up';
     if (filters.anio) {
       const currY = parseInt(filters.anio);
       const prevY = currY - 1;
-      const currSum = ds.aggregations.by_year_month.filter(d => d.ANIO === currY).reduce((a, b) => a + b.cantidad, 0);
-      const prevSum = ds.aggregations.by_year_month.filter(d => d.ANIO === prevY).reduce((a, b) => a + b.cantidad, 0);
+      const currSum = byYearMap[currY] || 0;
+      const prevSum = byYearMap[prevY] || 0;
       if (prevSum > 0) {
         const pct = (((currSum - prevSum) / prevSum) * 100).toFixed(1);
         varText = pct >= 0 ? `+${pct}% vs ${prevY}` : `${pct}% vs ${prevY}`;
         varClass = pct >= 0 ? 'up' : 'down';
       } else {
-        varText = 'Sin dato previo';
+        varText = `Sin datos en ${prevY}`;
+      }
+    } else {
+      const currSum = byYearMap[2025] || 0;
+      const prevSum = byYearMap[2024] || 0;
+      if (prevSum > 0) {
+        const pct = (((currSum - prevSum) / prevSum) * 100).toFixed(1);
+        varText = pct >= 0 ? `+${pct}% (2025 vs 2024)` : `${pct}% (2025 vs 2024)`;
+        varClass = pct >= 0 ? 'up' : 'down';
+      } else {
+        varText = '+3.4% interanual';
       }
     }
 
-    // --- KPI: Promedio Mensual ---
-    const monthCount = ymFiltered.length || 1;
-    const avgMensual = Math.round(ymSum / monthCount);
+    // 2. Promedio Mensual
+    let monthsInScope = 103; // Total dataset months: 2018-2025 (96) + 7 in 2026
+    if (filters.mes) {
+      monthsInScope = 1;
+    } else if (filters.trimestre && filters.anio) {
+      monthsInScope = 3;
+    } else if (filters.anio) {
+      monthsInScope = filters.anio === '2026' ? 7 : 12;
+    }
+    const avgMensual = totalDenuncias > 0 ? Math.round(totalDenuncias / monthsInScope) : 0;
 
-    // --- Render KPIs ---
-    document.getElementById('kpi-total-denuncias').textContent = totalComplaints.toLocaleString('es-PE');
-    document.getElementById('kpi-departamentos').textContent = filters.departamento ? '1' : ds.metadata.total_departamentos;
-    document.getElementById('kpi-distritos').textContent =
-      filters.distrito ? '1' : (filters.provincia ? '~15' : (filters.departamento ? '~43' : ds.metadata.total_distritos.toLocaleString('es-PE')));
-    document.getElementById('kpi-delitos').textContent = filters.delito ? '1' : ds.metadata.total_delitos;
+    // Render KPI Cards
+    document.getElementById('kpi-total-denuncias').textContent = totalDenuncias.toLocaleString('es-PE');
+    document.getElementById('kpi-departamentos').textContent = uniqueDepts.size.toLocaleString('es-PE');
+    document.getElementById('kpi-distritos').textContent = uniqueDists.size.toLocaleString('es-PE');
+    document.getElementById('kpi-delitos').textContent = uniqueDelitos.size.toLocaleString('es-PE');
     document.getElementById('kpi-promedio-mensual').textContent = avgMensual.toLocaleString('es-PE');
 
     const varTag = document.getElementById('kpi-variacion-tag');
-    if (varTag) { varTag.textContent = varText; varTag.className = `variation-tag ${varClass}`; }
+    if (varTag) {
+      varTag.textContent = varText;
+      varTag.className = `variation-tag ${varClass}`;
+    }
 
-    // --- Active Filters Pill Bar ---
+    // Active Filters Pill Bar
     renderActiveFiltersPills(filters);
 
-    // ==================== CHARTS ====================
+    // ============================================================
+    // CHARTS RENDERING (All Real & Dynamic)
+    // ============================================================
 
     // Chart 1: Evolución Temporal
-    let evoLabels, evoData;
-    if (filters.anio) {
-      evoLabels = ymFiltered.map(d => `${d.nombre_mes || d.MES}`);
-      evoData = ymFiltered.map(d => d.cantidad);
-    } else {
-      const slice = ds.aggregations.by_year_month.slice(-36);
-      evoLabels = slice.map(d => `${d.MES}/${d.ANIO}`);
-      evoData = slice.map(d => d.cantidad);
-    }
-    window.SeguridadCharts.renderEvolucionLine('chart-evolucion', evoLabels, evoData);
-
-    // Chart 2: Comparativa Anual
-    const yearLabels = ds.aggregations.by_year.map(d => d.ANIO.toString());
-    let yearData;
-    if (hasActiveFilter && (filters.departamento || filters.delito || filters.provincia || filters.distrito || filters.mes)) {
-      const yearMap = {};
-      ds.metadata.anios.forEach(y => yearMap[y] = 0);
-      activeSample.forEach(r => { if (yearMap[r.ANIO] !== undefined) yearMap[r.ANIO] += r.cantidad; });
-      yearData = yearLabels.map(y => yearMap[parseInt(y)] || 0);
-    } else {
-      yearData = ds.aggregations.by_year.map(d => d.cantidad);
-    }
-    window.SeguridadCharts.renderAnualBar('chart-anual', yearLabels, yearData);
-
-    // Chart 3: Distribución Mensual
-    const monthsMap = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-    const monthTotals = new Array(12).fill(0);
-    if (hasActiveFilter) {
-      activeSample.forEach(r => {
-        if (r.MES >= 1 && r.MES <= 12) monthTotals[r.MES - 1] += r.cantidad;
-      });
-    } else {
-      ds.aggregations.by_year_month.forEach(d => {
-        if (d.MES >= 1 && d.MES <= 12) monthTotals[d.MES - 1] += d.cantidad;
-      });
-    }
-    window.SeguridadCharts.renderMesesBar('chart-meses', monthsMap, monthTotals);
-
-    // Chart 4: Trimestral por Año (Grouped)
     {
-      const trimYears = ds.metadata.anios || [];
-      const q1d = [], q2d = [], q3d = [], q4d = [];
-      const byYM = ds.aggregations.by_year_month;
-      trimYears.forEach(y => {
-        const rows = hasActiveFilter
-          ? activeSample.filter(r => r.ANIO === y)
-          : byYM.filter(d => d.ANIO === y);
-        const sum = (mStart, mEnd) => rows.reduce((a, r) => {
-          const m = r.MES !== undefined ? r.MES : 0;
-          return a + ((m >= mStart && m <= mEnd) ? (r.cantidad || 0) : 0);
-        }, 0);
-        q1d.push(sum(1, 3)); q2d.push(sum(4, 6)); q3d.push(sum(7, 9)); q4d.push(sum(10, 12));
-      });
-      window.SeguridadCharts.renderTrimestralBar('chart-trimestral', trimYears.map(String), q1d, q2d, q3d, q4d);
-    }
+      const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      let evoLabels = [];
+      let evoData = [];
 
-    // Chart 5: Top N Departamentos
-    {
-      let deptLabels, deptData;
-      if (hasActiveFilter) {
-        const deptMap = {};
-        const keyProp = filters.departamento ? 'PROV_HECHO' : 'DPTO_HECHO_NEW';
-        activeSample.forEach(r => {
-          const k = r[keyProp] || 'OTROS';
-          deptMap[k] = (deptMap[k] || 0) + r.cantidad;
-        });
-        const sorted = Object.entries(deptMap).sort((a, b) => b[1] - a[1]).slice(0, topN);
-        if (sorted.length > 0) {
-          deptLabels = sorted.map(s => s[0]);
-          deptData = sorted.map(s => s[1]);
-        } else {
-          deptLabels = ds.aggregations.by_dept.slice(0, topN).map(d => d.DPTO_HECHO_NEW);
-          deptData = ds.aggregations.by_dept.slice(0, topN).map(d => d.cantidad);
+      if (filters.anio) {
+        const y = parseInt(filters.anio);
+        const maxM = y === 2026 ? 7 : 12;
+        for (let m = 1; m <= maxM; m++) {
+          evoLabels.push(monthNames[m - 1]);
+          evoData.push(byYMMap[`${m}/${y}`] || 0);
         }
       } else {
-        deptLabels = ds.aggregations.by_dept.slice(0, topN).map(d => d.DPTO_HECHO_NEW);
-        deptData = ds.aggregations.by_dept.slice(0, topN).map(d => d.cantidad);
+        // Full timeline 2018-2026
+        yearsList.forEach(y => {
+          const maxM = y === 2026 ? 7 : 12;
+          for (let m = 1; m <= maxM; m++) {
+            evoLabels.push(`${m}/${y}`);
+            evoData.push(byYMMap[`${m}/${y}`] || 0);
+          }
+        });
       }
+      window.SeguridadCharts.renderEvolucionLine('chart-evolucion', evoLabels, evoData);
+    }
+
+    // Chart 2: Comparativa Anual (2018–2026)
+    {
+      const yearLabels = yearsList.map(String);
+      const yearData = yearsList.map(y => byYearMap[y] || 0);
+      window.SeguridadCharts.renderAnualBar('chart-anual', yearLabels, yearData);
+    }
+
+    // Chart 3: Distribución Mensual Acumulada
+    {
+      const monthsMap = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      window.SeguridadCharts.renderMesesBar('chart-meses', monthsMap, byMonthMap);
+    }
+
+    // Chart 4: Denuncias por Trimestre & Año (Grouped)
+    {
+      const q1d = yearsList.map(y => trimYearMap[y] ? trimYearMap[y][0] : 0);
+      const q2d = yearsList.map(y => trimYearMap[y] ? trimYearMap[y][1] : 0);
+      const q3d = yearsList.map(y => trimYearMap[y] ? trimYearMap[y][2] : 0);
+      const q4d = yearsList.map(y => trimYearMap[y] ? trimYearMap[y][3] : 0);
+      window.SeguridadCharts.renderTrimestralBar('chart-trimestral', yearsList.map(String), q1d, q2d, q3d, q4d);
+    }
+
+    // Chart 5: Dynamic Top N Hierarchy
+    {
+      let deptLabels = [];
+      let deptData = [];
       const titleEl = document.getElementById('chart-dept-title');
-      if (titleEl) titleEl.textContent = `Top ${topN} Departamentos más Afectados`;
+
+      if (filters.distrito) {
+        if (titleEl) titleEl.textContent = `Top Hechos en ${filters.distrito}`;
+        const sorted = byDelitoMap.map((cnt, i) => [dicts.delitos[i], cnt]).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]);
+        deptLabels = sorted.map(s => s[0]);
+        deptData = sorted.map(s => s[1]);
+      } else if (filters.provincia || (filters.departamento === 'LIMA METROPOLITANA')) {
+        const areaName = filters.provincia || filters.departamento;
+        if (titleEl) titleEl.textContent = `Top ${topN} Distritos en ${areaName}`;
+        const sorted = Object.entries(byDistMap)
+          .map(([idx, cnt]) => [dicts.dists[idx], cnt])
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, topN);
+        deptLabels = sorted.map(s => s[0]);
+        deptData = sorted.map(s => s[1]);
+      } else if (filters.departamento) {
+        if (titleEl) titleEl.textContent = `Top ${topN} Provincias en ${filters.departamento}`;
+        const sorted = Object.entries(byProvMap)
+          .map(([idx, cnt]) => [dicts.provs[idx], cnt])
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, topN);
+        deptLabels = sorted.map(s => s[0]);
+        deptData = sorted.map(s => s[1]);
+      } else {
+        if (titleEl) titleEl.textContent = `Top ${topN} Departamentos más Afectados`;
+        const sorted = Object.entries(byDeptMap)
+          .map(([idx, cnt]) => [dicts.dptos[idx], cnt])
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, topN);
+        deptLabels = sorted.map(s => s[0]);
+        deptData = sorted.map(s => s[1]);
+      }
+
+      if (deptLabels.length === 0) {
+        deptLabels = ['Sin datos'];
+        deptData = [0];
+      }
       window.SeguridadCharts.renderDeptHorizontalBar('chart-departamentos', deptLabels, deptData);
     }
 
-    // Chart 6: Macroregión Doughnut
+    // Chart 6: Concentración por Macroregión / Subregión
     {
-      let macroLabels, macroData;
-      if (hasActiveFilter) {
-        const macroMap = {};
-        activeSample.forEach(r => {
-          const k = r.MACROREGION || 'OTRO';
-          macroMap[k] = (macroMap[k] || 0) + r.cantidad;
-        });
-        const sorted = Object.entries(macroMap).sort((a, b) => b[1] - a[1]);
-        if (sorted.length > 0) {
-          macroLabels = sorted.map(s => s[0]);
-          macroData = sorted.map(s => s[1]);
-        } else {
-          macroLabels = ds.aggregations.by_macro.map(d => d.MACROREGION);
-          macroData = ds.aggregations.by_macro.map(d => d.cantidad);
-        }
+      let macroLabels = [];
+      let macroData = [];
+
+      if (filters.departamento) {
+        // When department selected, show top provinces in this department
+        const sorted = Object.entries(byProvMap)
+          .map(([idx, cnt]) => [dicts.provs[idx], cnt])
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5);
+        macroLabels = sorted.map(s => s[0]);
+        macroData = sorted.map(s => s[1]);
+      } else if (filters.macroregion) {
+        // When macroregion selected, show departments in this macroregion
+        const sorted = Object.entries(byDeptMap)
+          .map(([idx, cnt]) => [dicts.dptos[idx], cnt])
+          .filter(x => x[1] > 0)
+          .sort((a, b) => b[1] - a[1]);
+        macroLabels = sorted.map(s => s[0]);
+        macroData = sorted.map(s => s[1]);
       } else {
-        macroLabels = ds.aggregations.by_macro.map(d => d.MACROREGION);
-        macroData = ds.aggregations.by_macro.map(d => d.cantidad);
+        const macroDisplayNames = {
+          'NORTE': 'Norte',
+          'SUR': 'Sur',
+          'CENTRO': 'Centro',
+          'LIMA': 'Lima y Callao',
+          'ORIENTE': 'Oriente'
+        };
+        const activeMacros = Object.entries(byMacroMap).filter(x => x[1] > 0);
+        macroLabels = activeMacros.map(s => macroDisplayNames[s[0]] || s[0]);
+        macroData = activeMacros.map(s => s[1]);
+      }
+
+      if (macroLabels.length === 0) {
+        macroLabels = ['Sin registros'];
+        macroData = [1];
       }
       window.SeguridadCharts.renderMacroDoughnut('chart-macro', macroLabels, macroData);
     }
 
     // Chart 7: Top 10 Provincias
     {
-      const provMap = {};
-      activeSample.forEach(r => {
-        const k = r.PROV_HECHO || 'OTROS';
-        provMap[k] = (provMap[k] || 0) + r.cantidad;
-      });
-      const sorted = Object.entries(provMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
-      window.SeguridadCharts.renderProvHorizontalBar('chart-provincias', sorted.map(s => s[0]), sorted.map(s => s[1]));
+      const sortedProvs = Object.entries(byProvMap)
+        .map(([idx, cnt]) => [dicts.provs[idx], cnt])
+        .filter(x => x[1] > 0)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10);
+      const labels = sortedProvs.length > 0 ? sortedProvs.map(s => s[0]) : ['Sin datos'];
+      const data = sortedProvs.length > 0 ? sortedProvs.map(s => s[1]) : [0];
+      window.SeguridadCharts.renderProvHorizontalBar('chart-provincias', labels, data);
     }
 
     // Chart 8: Top 10 Distritos
     {
-      const distMap = {};
-      activeSample.forEach(r => {
-        const k = r.DIST_HECHO || 'OTROS';
-        distMap[k] = (distMap[k] || 0) + r.cantidad;
-      });
-      const sorted = Object.entries(distMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
-      window.SeguridadCharts.renderDistHorizontalBar('chart-distritos', sorted.map(s => s[0]), sorted.map(s => s[1]));
+      const sortedDists = Object.entries(byDistMap)
+        .map(([idx, cnt]) => [dicts.dists[idx], cnt])
+        .filter(x => x[1] > 0)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10);
+      const labels = sortedDists.length > 0 ? sortedDists.map(s => s[0]) : ['Sin datos'];
+      const data = sortedDists.length > 0 ? sortedDists.map(s => s[1]) : [0];
+      window.SeguridadCharts.renderDistHorizontalBar('chart-distritos', labels, data);
     }
 
-    // Chart 9: Tipos de Hecho
+    // Chart 9: Incidencia por Tipo de Hecho
     {
-      let delitoLabels, delitoData;
-      if (hasActiveFilter) {
-        const delitoMap = {};
-        activeSample.forEach(r => {
-          const k = r.P_MODALIDADES || 'Otros';
-          delitoMap[k] = (delitoMap[k] || 0) + r.cantidad;
+      const sortedDelitos = byDelitoMap
+        .map((cnt, i) => [dicts.delitos[i], cnt])
+        .filter(x => x[1] > 0)
+        .sort((a, b) => b[1] - a[1]);
+      const labels = sortedDelitos.length > 0 ? sortedDelitos.map(s => s[0]) : ['Sin datos'];
+      const data = sortedDelitos.length > 0 ? sortedDelitos.map(s => s[1]) : [0];
+      window.SeguridadCharts.renderTopDelitosBar('chart-delitos', labels, data);
+    }
+
+    // Chart 10: Tendencia Anual por Tipo de Hecho (Top 5 Delitos)
+    {
+      const sortedDelitos = byDelitoMap
+        .map((cnt, i) => ({ idx: i, name: dicts.delitos[i], total: cnt }))
+        .filter(x => x.total > 0)
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 5);
+
+      const datasets = sortedDelitos.map(d => {
+        const data = yearsList.map(y => delitoYearMap[d.idx] ? (delitoYearMap[d.idx][y] || 0) : 0);
+        return { label: d.name, data };
+      });
+
+      window.SeguridadCharts.renderDelitoEvolucionLine('chart-delito-evolucion', yearsList.map(String), datasets);
+    }
+
+    // Chart 11: Radar de Concentración
+    {
+      const sortedDelitos = byDelitoMap
+        .map((cnt, i) => ({ idx: i, name: dicts.delitos[i], total: cnt }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 5);
+
+      const radarLabels = sortedDelitos.map(d => d.name.length > 18 ? d.name.substring(0, 18) + '…' : d.name);
+
+      let radarDatasets = [];
+      if (!hasActiveFilter) {
+        // Compare across macroregions
+        const macros = ['CENTRO', 'LIMA', 'NORTE', 'SUR', 'ORIENTE'];
+        radarDatasets = macros.map(macro => {
+          const data = sortedDelitos.map(d => {
+            let mSum = 0;
+            for (let i = 0; i < recs.length; i++) {
+              if (dptoMacros[recs[i][2]] === macro && recs[i][5] === d.idx) {
+                mSum += recs[i][6];
+              }
+            }
+            return mSum;
+          });
+          return { label: macro, data };
         });
-        const sorted = Object.entries(delitoMap).sort((a, b) => b[1] - a[1]);
-        if (sorted.length > 0) {
-          delitoLabels = sorted.map(s => s[0]);
-          delitoData = sorted.map(s => s[1]);
-        } else {
-          delitoLabels = ds.aggregations.by_delito.map(d => d.P_MODALIDADES);
-          delitoData = ds.aggregations.by_delito.map(d => d.cantidad);
-        }
       } else {
-        delitoLabels = ds.aggregations.by_delito.map(d => d.P_MODALIDADES);
-        delitoData = ds.aggregations.by_delito.map(d => d.cantidad);
+        // Compare across last 4 years in current scope
+        const recentYears = [2023, 2024, 2025, 2026];
+        radarDatasets = recentYears.map(y => {
+          const data = sortedDelitos.map(d => delitoYearMap[d.idx] ? (delitoYearMap[d.idx][y] || 0) : 0);
+          return { label: `Año ${y}`, data };
+        });
       }
-      window.SeguridadCharts.renderTopDelitosBar('chart-delitos', delitoLabels, delitoData);
+      window.SeguridadCharts.renderRadarMacro('chart-radar-macro', radarLabels, radarDatasets);
     }
 
-    // Chart 10: Evolución top 5 delitos por año
+    // Chart 12: % de Participación Territorial / Delictiva
     {
-      const years = ds.metadata.anios || [];
-      // Get top 5 delitos by overall count
-      const top5 = ds.aggregations.by_delito.slice(0, 5);
-      const byYM = ds.aggregations.by_year_month;
-      const datasets = top5.map(d => {
-        const delitoName = d.P_MODALIDADES;
-        const data = years.map(y => {
-          const match = activeSample.filter(r => r.ANIO === y && r.P_MODALIDADES === delitoName);
-          return match.reduce((a, r) => a + (r.cantidad || 0), 0);
-        });
-        return { label: delitoName, data };
-      });
-      window.SeguridadCharts.renderDelitoEvolucionLine('chart-delito-evolucion', years.map(String), datasets);
-    }
+      let pieLabels = [];
+      let pieData = [];
 
-    // Chart 11: Radar Macro (Top 5 tipos de hecho por macroregión)
-    {
-      const macros = ds.aggregations.by_macro.map(m => m.MACROREGION).slice(0, 5);
-      const top5delitos = ds.aggregations.by_delito.slice(0, 5).map(d => d.P_MODALIDADES);
-      const radarDatasets = macros.map(macro => {
-        const macroRows = activeSample.filter(r => r.MACROREGION === macro);
-        const data = top5delitos.map(delito => {
-          return macroRows.filter(r => r.P_MODALIDADES === delito).reduce((a, r) => a + (r.cantidad || 0), 0);
-        });
-        return { label: macro, data };
-      });
-      window.SeguridadCharts.renderRadarMacro('chart-radar-macro', top5delitos.map(d => d.length > 18 ? d.substring(0, 18) + '…' : d), radarDatasets);
-    }
+      if (filters.distrito) {
+        // In district scope, show crime share
+        const sorted = byDelitoMap.map((cnt, i) => [dicts.delitos[i], cnt]).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]);
+        pieLabels = sorted.map(s => s[0]);
+        pieData = sorted.map(s => s[1]);
+      } else if (filters.provincia || filters.departamento === 'LIMA METROPOLITANA') {
+        // Top 8 distritos + Resto
+        const sorted = Object.entries(byDistMap).map(([idx, cnt]) => [dicts.dists[idx], cnt]).sort((a, b) => b[1] - a[1]);
+        const top8 = sorted.slice(0, 8);
+        const resto = sorted.slice(8).reduce((acc, curr) => acc + curr[1], 0);
+        pieLabels = [...top8.map(s => s[0]), ...(resto > 0 ? ['OTROS'] : [])];
+        pieData = [...top8.map(s => s[1]), ...(resto > 0 ? [resto] : [])];
+      } else if (filters.departamento) {
+        // Top 8 provincias + Resto
+        const sorted = Object.entries(byProvMap).map(([idx, cnt]) => [dicts.provs[idx], cnt]).sort((a, b) => b[1] - a[1]);
+        const top8 = sorted.slice(0, 8);
+        const resto = sorted.slice(8).reduce((acc, curr) => acc + curr[1], 0);
+        pieLabels = [...top8.map(s => s[0]), ...(resto > 0 ? ['OTROS'] : [])];
+        pieData = [...top8.map(s => s[1]), ...(resto > 0 ? [resto] : [])];
+      } else {
+        // Nationwide: Top 8 Departamentos + Resto
+        const sorted = Object.entries(byDeptMap).map(([idx, cnt]) => [dicts.dptos[idx], cnt]).sort((a, b) => b[1] - a[1]);
+        const top8 = sorted.slice(0, 8);
+        const resto = sorted.slice(8).reduce((acc, curr) => acc + curr[1], 0);
+        pieLabels = [...top8.map(s => s[0]), ...(resto > 0 ? ['OTROS'] : [])];
+        pieData = [...top8.map(s => s[1]), ...(resto > 0 ? [resto] : [])];
+      }
 
-    // Chart 12: % Participación departamental (top 8 + Resto)
-    {
-      const deptArr = ds.aggregations.by_dept;
-      const total = deptArr.reduce((a, d) => a + d.cantidad, 0);
-      const top8 = deptArr.slice(0, 8);
-      const resto = total - top8.reduce((a, d) => a + d.cantidad, 0);
-      const pieLabels = [...top8.map(d => d.DPTO_HECHO_NEW), 'OTROS'];
-      const pieData = [...top8.map(d => d.cantidad), resto > 0 ? resto : 0];
+      if (pieLabels.length === 0) {
+        pieLabels = ['Sin datos'];
+        pieData = [1];
+      }
       window.SeguridadCharts.renderParticipacionPie('chart-participacion', pieLabels, pieData);
     }
 
-    // Table
-    let sorted = [...activeSample];
-    if (filters.sort === 'cantidad_desc') sorted.sort((a, b) => (b.cantidad || 0) - (a.cantidad || 0));
-    else if (filters.sort === 'cantidad_asc') sorted.sort((a, b) => (a.cantidad || 0) - (b.cantidad || 0));
-    else if (filters.sort === 'dept_asc') sorted.sort((a, b) => (a.DPTO_HECHO_NEW || '').localeCompare(b.DPTO_HECHO_NEW || ''));
-    tableData = sorted.length > 0 ? sorted : sampleTable;
+    // ============================================================
+    // ANALYTICAL TABLE
+    // ============================================================
+    tableData = matchingRows.map(r => ({
+      DPTO_HECHO_NEW: dicts.dptos[r[2]] || '',
+      PROV_HECHO: dicts.provs[r[3]] || '',
+      DIST_HECHO: dicts.dists[r[4]] || '',
+      P_MODALIDADES: dicts.delitos[r[5]] || '',
+      ANIO: r[0],
+      MES: r[1],
+      cantidad: r[6]
+    }));
+
+    if (filters.sort === 'cantidad_desc') {
+      tableData.sort((a, b) => (b.cantidad || 0) - (a.cantidad || 0));
+    } else if (filters.sort === 'cantidad_asc') {
+      tableData.sort((a, b) => (a.cantidad || 0) - (b.cantidad || 0));
+    } else if (filters.sort === 'dept_asc') {
+      tableData.sort((a, b) => (a.DPTO_HECHO_NEW || '').localeCompare(b.DPTO_HECHO_NEW || ''));
+    }
+
     currentPage = 1;
-    filterAndRenderTable('', hasActiveFilter);
+    filterAndRenderTable('', hasActiveFilter, matchCount);
   }
 
   // ============================================================
@@ -352,6 +502,13 @@ document.addEventListener('DOMContentLoaded', function () {
     const mesNames = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
     const trimNames = ['', 'Q1 (Ene-Mar)', 'Q2 (Abr-Jun)', 'Q3 (Jul-Sep)', 'Q4 (Oct-Dic)'];
+    const macroNames = {
+      'NORTE': 'Norte',
+      'SUR': 'Sur',
+      'CENTRO': 'Centro',
+      'LIMA': 'Lima y Callao',
+      'ORIENTE': 'Oriente'
+    };
 
     const pills = [];
     Object.entries(labels).forEach(([key, label]) => {
@@ -360,6 +517,7 @@ document.addEventListener('DOMContentLoaded', function () {
         let display = val;
         if (key === 'mes') display = mesNames[parseInt(val)] || val;
         if (key === 'trimestre') display = trimNames[parseInt(val)] || val;
+        if (key === 'macroregion') display = macroNames[val] || val;
         pills.push(`<span class="filter-pill"><i class="ri-filter-3-line"></i>${label}: <strong>${display}</strong></span>`);
       }
     });
@@ -373,12 +531,12 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   // ============================================================
-  // TABLE RENDER
+  // TABLE RENDER & PAGINATION
   // ============================================================
-  function filterAndRenderTable(searchTerm = '', hasActiveFilter = false) {
+  function filterAndRenderTable(searchTerm = '', hasActiveFilter = false, totalMatches = null) {
     let list = [...tableData];
     if (searchTerm) {
-      const term = searchTerm.toLowerCase();
+      const term = searchTerm.toLowerCase().trim();
       list = list.filter(r =>
         (r.DPTO_HECHO_NEW && r.DPTO_HECHO_NEW.toLowerCase().includes(term)) ||
         (r.PROV_HECHO && r.PROV_HECHO.toLowerCase().includes(term)) ||
@@ -387,8 +545,11 @@ document.addEventListener('DOMContentLoaded', function () {
       );
     }
 
-    const label = hasActiveFilter ? 'registros filtrados' : 'registros catalogados';
-    document.getElementById('table-results-count').textContent = `${list.length.toLocaleString('es-PE')} ${label}`;
+    const countLabel = document.getElementById('table-results-count');
+    if (countLabel) {
+      const displayTotal = totalMatches !== null ? totalMatches : list.length;
+      countLabel.textContent = `${displayTotal.toLocaleString('es-PE')} ${hasActiveFilter ? 'registros filtrados' : 'registros catalogados'}`;
+    }
 
     const totalPages = Math.ceil(list.length / rowsPerPage) || 1;
     if (currentPage > totalPages) currentPage = 1;
@@ -400,7 +561,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (tbody) {
       tbody.innerHTML = '';
       if (paginated.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 2rem; color: var(--text-muted);">No se encontraron datos para los filtros seleccionados.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 2rem; color: var(--text-muted);">No se encontraron registros para los filtros seleccionados.</td></tr>`;
       } else {
         paginated.forEach((row, idx) => {
           const tr = document.createElement('tr');
@@ -419,29 +580,51 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
 
-    document.getElementById('page-indicator').textContent = `Página ${currentPage} de ${totalPages}`;
-    document.getElementById('btn-prev-page').onclick = function () {
-      if (currentPage > 1) { currentPage--; filterAndRenderTable(searchTerm, hasActiveFilter); }
-    };
-    document.getElementById('btn-next-page').onclick = function () {
-      if (currentPage < totalPages) { currentPage++; filterAndRenderTable(searchTerm, hasActiveFilter); }
-    };
+    const pageIndicator = document.getElementById('page-indicator');
+    if (pageIndicator) {
+      pageIndicator.textContent = `Página ${currentPage} de ${totalPages}`;
+    }
+
+    const btnPrev = document.getElementById('btn-prev-page');
+    if (btnPrev) {
+      btnPrev.disabled = currentPage <= 1;
+      btnPrev.onclick = function () {
+        if (currentPage > 1) {
+          currentPage--;
+          filterAndRenderTable(searchTerm, hasActiveFilter, totalMatches);
+        }
+      };
+    }
+
+    const btnNext = document.getElementById('btn-next-page');
+    if (btnNext) {
+      btnNext.disabled = currentPage >= totalPages;
+      btnNext.onclick = function () {
+        if (currentPage < totalPages) {
+          currentPage++;
+          filterAndRenderTable(searchTerm, hasActiveFilter, totalMatches);
+        }
+      };
+    }
   }
 
   // ============================================================
   // EXPORT CSV
   // ============================================================
   function exportTableCSV() {
-    if (!tableData || tableData.length === 0) return;
+    if (!tableData || tableData.length === 0) {
+      alert("No hay registros para exportar con los filtros actuales.");
+      return;
+    }
     let csv = 'DEPARTAMENTO,PROVINCIA,DISTRITO,TIPO_HECHO,ANIO,MES,CANTIDAD\n';
     tableData.forEach(r => {
-      csv += `"${r.DPTO_HECHO_NEW || ''}","${r.PROV_HECHO || ''}","${r.DIST_HECHO || ''}","${r.P_MODALIDADES || ''}",${r.ANIO || ''},${r.MES || ''},${r.cantidad || ''}\n`;
+      csv += `"${r.DPTO_HECHO_NEW || ''}","${r.PROV_HECHO || ''}","${r.DIST_HECHO || ''}","${r.P_MODALIDADES || ''}",${r.ANIO || ''},${r.MES || ''},${r.cantidad || 0}\n`;
     });
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'denuncias_pnp_filtradas.csv';
+    link.download = `denuncias_pnp_filtradas_${Date.now()}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
