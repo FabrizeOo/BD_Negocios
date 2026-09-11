@@ -5,6 +5,8 @@
 # Local academic reports
 INFORME_PROYECTO_PROFESOR.md
 INFORME_*.md
+TOPOLOGIA_COPO_DE_NIEVE.md
+sql/MIGRACION_COPO_DE_NIEVE_SUPABASE.sql
 
 # Large datasets
 *.csv
